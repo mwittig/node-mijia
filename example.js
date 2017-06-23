@@ -2,12 +2,30 @@
 
 const miio = require('./lib');
 
-// Create a new device over the given address
-miio.device({
-	address: '192.168.100.8'
-}).then(device => {
-	if(device.hasCapability('power')) {
-		console.log('power is now', device.power);
-		return device.setPower(! device.power);
+const browser = miio.browse({
+	cacheTime: 300 // 5 minutes. Default is 1800 seconds (30 minutes)
+});
+
+const devices = {};
+
+	browser.on('available', reg => {
+	if(! reg.token) {
+		console.log(reg.id, 'hides its token');
+		return;
 	}
-}).catch(console.error);
+
+	miio.device(reg)
+	.then(device => {
+		devices[reg.id] = device;
+		// Do something useful with the device
+	})
+	.catch(handleErrorProperlyHere);
+});
+
+browser.on('unavailable', reg => {
+	const device = devices[reg.id];
+	if(! device) return;
+
+	device.destroy();
+	delete devices[reg.id];
+})
